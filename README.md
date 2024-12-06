@@ -4,6 +4,8 @@
 [![PyPI](https://img.shields.io/pypi/v/woy.svg?color=green)](https://pypi.org/project/woy)
 [![Python Version](https://img.shields.io/pypi/pyversions/woy.svg?color=green)](https://python.org)
 
+[![asciicast](https://asciinema.org/a/A8QR33m8LjbkkrD20a6c1ox8B.svg)](https://asciinema.org/a/A8QR33m8LjbkkrD20a6c1ox8B)
+
 Wanna know how badly addicted you are to youtube? Woy will tell you how much of your time you wasted watching videos, with several stats about channels, tags, weekly watchtime, and so on.
 
 It works by scraping your youtube watch history (obtained with [Google Takeout](https://takeout.google.com/)) and complementing with extra info about the videos (obtained with the [Youtube API](https://developers.google.com/youtube/v3).
