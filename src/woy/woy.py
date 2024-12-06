@@ -129,27 +129,45 @@ def fetch(takeout, api_key, country_code):
 
 @woy.command()
 @click.argument("history_csv", required=False, type=click.Path(exists=True, resolve_path=True))
-@click.option("-r", "--include-rewatch", is_flag=True)
-@click.option("-m", "--max-length-hours", default=5)
+@click.option(
+    "-m",
+    "--max-length-hours",
+    default=5,
+    help="Exclude video longer than this amount of hours. Outliers can mess up all the calculations. "
+    "0 to exclude none.",
+)
+@click.option(
+    "-l", "--list-lengths", default=10, help="How many elements to show in lists such as 'most watched channels'."
+)
 @click.option("-f", "--from-date", help="Use data from this date, included (YYYY-MM-DD).")
 @click.option("-t", "--to-date", help="Use data up to this date, included (YYYY-MM-DD).")
 @click.option(
+    "-k",
     "--include-categories",
     help="Comma-separated list of categories. If given, include only these categories in the summary.",
 )
 @click.option(
-    "--exclude-categories", help="Comma-separated list of categories. Exclude these categories from the summary."
+    "-K", "--exclude-categories", help="Comma-separated list of categories. Exclude these categories from the summary."
 )
-@click.option("--include-tags", help="Comma-separated list of tags. If given, include only these tags in the summary.")
-@click.option("--exclude-tags", help="Comma-separated list of tags. Exclude these tags from the summary.")
 @click.option(
-    "--include-channels", help="Comma-separated list of channels. If given, include only these channels in the summary."
+    "-t", "--include-tags", help="Comma-separated list of tags. If given, include only these tags in the summary."
 )
-@click.option("--exclude-channels", help="Comma-separated list of channels. Exclude these channels from the summary.")
+@click.option("-T", "--exclude-tags", help="Comma-separated list of tags. Exclude these tags from the summary.")
+@click.option(
+    "-c",
+    "--include-channels",
+    help="Comma-separated list of channels. If given, include only these channels in the summary.",
+)
+@click.option(
+    "-C", "--exclude-channels", help="Comma-separated list of channels. Exclude these channels from the summary."
+)
+@click.option(
+    "-r", "--include-rewatch", is_flag=True, help="Include duplicates. Likely to incorrectly inflate numbers."
+)
 def process(
     history_csv,
-    include_rewatch,
     max_length_hours,
+    list_lengths,
     from_date,
     to_date,
     include_categories,
@@ -158,8 +176,12 @@ def process(
     exclude_tags,
     include_channels,
     exclude_channels,
+    include_rewatch,
 ):
-    """Process and summarize the data."""
+    """Process and summarize the data.
+
+    HISTORY_CSV: path to the history csv generated with fetch. [default: ./youtube_watch_history.csv]
+    """
     import numpy as np
     import pandas as pd
     import plotly.express as px
@@ -201,7 +223,8 @@ def process(
     longest = df[["id", "title", "channel", "duration"]].sort_values("duration", ascending=False)
 
     valid_len = len(df)
-    df = df[df.duration <= pd.Timedelta(f"PT{max_length_hours}H")]
+    if max_length_hours:
+        df = df[df.duration <= pd.Timedelta(f"PT{max_length_hours}H")]
     short_len = len(df)
 
     if not include_rewatch:
@@ -233,35 +256,35 @@ def process(
 
     most_watched_channels = df.groupby(["channel"]).duration.sum().sort_values(ascending=False)
     print("Your most watched channels:")
-    for ch, time in most_watched_channels.iloc[:10].items():
+    for ch, time in most_watched_channels.iloc[:list_lengths].items():
         print(f"  - {time}: [blue]{ch}[/blue]")
 
     category_time = df.groupby("category").duration.sum().sort_values(ascending=False)
     print("Your most watched categories were:")
-    for cat, time in category_time.iloc[:10].items():
+    for cat, time in category_time.iloc[:list_lengths].items():
         print(f"  - {time}: [red]{cat}[/red]")
 
     unique, counts = np.unique(np.concatenate(df.tags.dropna().to_numpy()), return_counts=True)
     common_tags = sorted(zip(counts, unique), reverse=True)
     print("The most common tags:")
-    for n, tag in common_tags[:10]:
+    for n, tag in common_tags[:list_lengths]:
         print(f"  - {n} times: {tag}")
 
     if include_rewatch:
         most_rewatched = df.groupby(["id", "title", "channel"]).size().sort_values(ascending=False)
         print("Your most rewatched videos:")
-        for (vid, vid, chan), times in most_rewatched.iloc[:10].items():
+        for (vid, vid, chan), times in most_rewatched.iloc[:list_lengths].items():
             print(f"  - {times} times: [purple]{yt_link(vid, vid)}[/purple] by [blue]{chan}[/blue]")
 
     most_obscure = df[["id", "title", "channel", "views"]].sort_values("views", ascending=True)
     print("The most obscure videos you watched were:")
-    for _, row in most_obscure.drop_duplicates("id").iloc[:10].iterrows():
+    for _, row in most_obscure.drop_duplicates("id").iloc[:list_lengths].iterrows():
         print(f"  - {row.views} views: [purple]{yt_link(row.id, row.title)}[/purple] by [blue]{row.channel}[/blue]")
 
     print(
         f"The longest videos you watched (excluded in other calculations if longer than {max_length_hours} hours) were:"
     )
-    for _, row in longest.drop_duplicates("id").iloc[:10].iterrows():
+    for _, row in longest.drop_duplicates("id").iloc[:list_lengths].iterrows():
         print(f"  - {row.duration}: [purple]{yt_link(row.id, row.title)}[/purple] by [blue]{row.channel}[/blue]")
 
     print(

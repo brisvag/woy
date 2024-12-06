@@ -51,7 +51,7 @@ repository = "https://github.com/brisvag/woy"
 
 # same as console_scripts entry point
 [project.scripts]
-woy = "woy:woy"
+woy = "woy.woy:woy"
 
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]
