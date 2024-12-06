@@ -17,7 +17,11 @@ The history file will be located at `Takeout/YouTube and YouTube Music/history/w
 
 In order to use the youtube API you'll need your own API key (or alternative, ask for a friend's 😉). To do so, I recommend following [the official guide](https://developers.google.com/youtube/v3/getting-started) up to point `3.`; you can skip setting up OAuth authentication, as it won't be needed.
 
-Once you have your Takeout and your API key, you're ready to go!
+Once you have your Takeout and your API key, you're ready to go! Install woy with pip (or your preferred method, I suggest [uv](https://docs.astral.sh/uv/):
+
+```
+pip install woy
+```
 
 ## Usage
 
@@ -47,3 +51,7 @@ For example, to include only the data starting from 2020, and exclude videos cat
 ```
 woy process --exclude-categories "Music" -f 2020-01-01
 ```
+
+## Caveats
+
+Youtube Takeout unfortunately does not include playback information, such as exact minutes watched and playback speed. This means that every time a video is watched "a bit", it's counted as a full watch. As a result, watch times are always overestimated, resulting for example in days where the watchtime is longer than 24h. As far as I know, there's no way around it.
