@@ -1,0 +1,19 @@
+{
+  "template": "https://github.com/brisvag/pyrepo-cookiecutter",
+  "commit": "2457b8958a47dd2dc8a28f6ad816e492e2bbc581",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "full_name": "Lorenzo Gaifas",
+      "email": "brisvag@gmail.com",
+      "github_username": "brisvag",
+      "project_name": "woy",
+      "project_slug": "woy",
+      "project_short_description": "Wasted On Youtube",
+      "pypi_username": "brisvag",
+      "generate_docs": false,
+      "_template": "https://github.com/brisvag/pyrepo-cookiecutter"
+    }
+  },
+  "directory": null
+}
