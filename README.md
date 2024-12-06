@@ -36,7 +36,7 @@ woy process
 ```
 
 [!TIP]
-Video titles are clickable links!
+Video titles and channel names are clickable links!
 
 Run `woy process -h` to see all the available options to customize the summary.
 

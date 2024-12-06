@@ -35,6 +35,7 @@ def get_video_data(client, video_ids):
         try:
             duration = it["contentDetails"]["duration"]
             channel = it["snippet"]["channelTitle"]
+            channel_id = it["snippet"]["channelId"]
             title = it["snippet"]["title"]
             category = it["snippet"]["categoryId"]
             views = it["statistics"].get("viewCount", pd.NA)
@@ -42,7 +43,7 @@ def get_video_data(client, video_ids):
         except Exception:
             print(f"Something went wrong with video {vid}, skipping.")
             continue
-        yield vid, duration, channel, title, category, views, tags
+        yield vid, duration, channel, channel_id, title, category, views, tags
 
 
 def get_id_chunks(ids):
@@ -56,6 +57,11 @@ def get_id_chunks(ids):
 def yt_link(id, text):
     """Clickable link in rich.print from video id and link text."""
     return f"[link=https://youtube.com/watch?v={id}]{text}[/link]"
+
+
+def chan_link(id, text):
+    """Clickable link in rich.print from channel id and link text."""
+    return f"[link=https://youtube.com/channel/{id}]{text}[/link]"
 
 
 @click.group(
@@ -111,13 +117,13 @@ def fetch(takeout, api_key, country_code):
         index=ids,
     )
     df.index.name = "id"
-    df[["duration", "channel", "title", "category", "views", "tags"]] = pd.NA
+    df[["duration", "channel", "channel_id", "title", "category", "views", "tags"]] = pd.NA
 
     client = googleapiclient.discovery.build(serviceName="youtube", version="v3", developerKey=api_key)
 
     for ids in track(id_chunks, description="Fetching data...", disable=False):
         for vid, *columns in get_video_data(client, ids):
-            df.loc[vid, ["duration", "channel", "title", "category", "views", "tags"]] = columns
+            df.loc[vid, ["duration", "channel", "channel_id", "title", "category", "views", "tags"]] = columns
 
     df.category = df.category.map(get_video_categories(client, country_code))
 
@@ -220,7 +226,7 @@ def process(
 
     raw_len = len(df)
 
-    longest = df[["id", "title", "channel", "duration"]].sort_values("duration", ascending=False)
+    longest = df[["id", "title", "channel", "channel_id", "duration"]].sort_values("duration", ascending=False)
 
     valid_len = len(df)
     if max_length_hours:
@@ -254,10 +260,10 @@ def process(
 
     print(f"Your worst day was on {worst_days.index[0].date()}, when you watched for: {worst_days.iloc[0]}.")
 
-    most_watched_channels = df.groupby(["channel"]).duration.sum().sort_values(ascending=False)
+    most_watched_channels = df.groupby(["channel", "channel_id"]).duration.sum().sort_values(ascending=False)
     print("Your most watched channels:")
-    for ch, time in most_watched_channels.iloc[:list_lengths].items():
-        print(f"  - {time}: [blue]{ch}[/blue]")
+    for (ch, chid), time in most_watched_channels.iloc[:list_lengths].items():
+        print(f"  - {time}: [blue]{chan_link(chid, ch)}[/blue]")
 
     category_time = df.groupby("category").duration.sum().sort_values(ascending=False)
     print("Your most watched categories were:")
@@ -271,21 +277,27 @@ def process(
         print(f"  - {n} times: {tag}")
 
     if include_rewatch:
-        most_rewatched = df.groupby(["id", "title", "channel"]).size().sort_values(ascending=False)
+        most_rewatched = df.groupby(["id", "title", "channel", "channel_id"]).size().sort_values(ascending=False)
         print("Your most rewatched videos:")
-        for (vid, vid, chan), times in most_rewatched.iloc[:list_lengths].items():
-            print(f"  - {times} times: [purple]{yt_link(vid, vid)}[/purple] by [blue]{chan}[/blue]")
+        for (vid, vid, chan, chid), times in most_rewatched.iloc[:list_lengths].items():
+            print(f"  - {times} times: [purple]{yt_link(vid, vid)}[/purple] by [blue]{chan_link(chid, chan)}[/blue]")
 
-    most_obscure = df[["id", "title", "channel", "views"]].sort_values("views", ascending=True)
+    most_obscure = df[["id", "title", "channel", "channel_id", "views"]].sort_values("views", ascending=True)
     print("The most obscure videos you watched were:")
     for _, row in most_obscure.drop_duplicates("id").iloc[:list_lengths].iterrows():
-        print(f"  - {row.views} views: [purple]{yt_link(row.id, row.title)}[/purple] by [blue]{row.channel}[/blue]")
+        print(
+            f"  - {row.views} views: [purple]{yt_link(row.id, row.title)}[/purple] "
+            f"by [blue]{chan_link(row.channel_id, row.channel)}[/blue]"
+        )
 
     print(
         f"The longest videos you watched (excluded in other calculations if longer than {max_length_hours} hours) were:"
     )
     for _, row in longest.drop_duplicates("id").iloc[:list_lengths].iterrows():
-        print(f"  - {row.duration}: [purple]{yt_link(row.id, row.title)}[/purple] by [blue]{row.channel}[/blue]")
+        print(
+            f"  - {row.duration}: [purple]{yt_link(row.id, row.title)}[/purple] "
+            f"by [blue]{chan_link(row.channel_id, row.channel)}[/blue]"
+        )
 
     print(
         f"{raw_len - valid_len} videos from your history ({100 * (raw_len - valid_len) / raw_len:.2f})% "
