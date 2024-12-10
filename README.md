@@ -12,8 +12,7 @@ It works by scraping your youtube watch history (obtained with [Google Takeout](
 
 ## Setup
 
-First, ask google for your data with [Google Takeout](https://takeout.google.com/). You can deselect everything except Youtube. After selecting Youtube, make sure to click on "multiple formats" and change the "history" dropdown from HTML to JSON. Do whatever you prefer for the next steps, and you should soon receive your data via the chosen method.
-The history file will be located at `Takeout/YouTube and YouTube Music/history/watch-history.json` inside the extracted directory.
+First, ask google for your data: click on your avatar on the top right of youtube, and open `Settings`, then `Your data in Youtube`, then `More` under `Your Youtube dashboard`, and finally `Download Youtube Data`. In the next page, make sure to click on "multiple formats" and change the "history" dropdown from HTML to JSON. Do whatever you prefer for the next steps, and you should soon receive your data via the chosen method. The history file will be located at `Takeout/YouTube and YouTube Music/history/watch-history.json` inside the extracted directory.
 
 In order to use the youtube API you'll need your own API key (or alternative, ask for a friend's 😉). To do so, I recommend following [the official guide](https://developers.google.com/youtube/v3/getting-started) up to point `3.`; you can skip setting up OAuth authentication, as it won't be needed.
 
