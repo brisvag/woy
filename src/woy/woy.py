@@ -107,7 +107,7 @@ def fetch(takeout, api_key, country_code):
     id_chunks = get_id_chunks(id_clean)
 
     click.confirm(
-        f"This will use up {len(id_chunks)} api quota. Continue and save the data to {output}?"
+        f"This will use up {len(id_chunks)} api quota. Continue and save the data to {output}?\n"
         "Don't (re)run unnecessarily!",
         abort=True,
     )
@@ -144,6 +144,12 @@ def fetch(takeout, api_key, country_code):
 )
 @click.option(
     "-l", "--list-lengths", default=10, help="How many elements to show in lists such as 'most watched channels'."
+)
+@click.option(
+    "-a",
+    "--adjust-watch-time",
+    is_flag=True,
+    help="Adjust watch time if the next video was watched before the end of the first.",
 )
 @click.option("-f", "--from-date", help="Use data from this date, included (YYYY-MM-DD).")
 @click.option("-t", "--to-date", help="Use data up to this date, included (YYYY-MM-DD).")
@@ -183,6 +189,7 @@ def process(
     include_channels,
     exclude_channels,
     include_rewatch,
+    adjust_watch_time,
 ):
     """Process and summarize the data.
 
@@ -196,10 +203,14 @@ def process(
     if history_csv is None:
         history_csv = Path().resolve() / "youtube_watch_history.csv"
 
-    df = pd.read_csv(history_csv, sep="\t")
+    df = pd.read_csv(history_csv, sep="\t").sort_values("watched_on").reset_index(drop=True)
     df.watched_on = pd.to_datetime(df.watched_on, format="ISO8601")
     df.duration = pd.to_timedelta(df.duration)
     df.tags = df.tags.str.split(",")
+
+    if adjust_watch_time:
+        max_watchtime = df.watched_on[1:].to_numpy() - df.watched_on[:-1].to_numpy()
+        df.duration = np.minimum(df.duration[:-1], pd.to_timedelta(max_watchtime))
 
     if from_date is not None:
         from_date = pd.Timestamp(from_date).date()
@@ -230,7 +241,8 @@ def process(
 
     valid_len = len(df)
     if max_length_hours:
-        df = df[df.duration <= pd.Timedelta(f"PT{max_length_hours}H")]
+        d, h = int(max_length_hours) // 24, int(max_length_hours) % 24
+        df = df[df.duration <= pd.Timedelta(f"PT{d}D{h}H")]
     short_len = len(df)
 
     if not include_rewatch:
@@ -259,6 +271,10 @@ def process(
     )
 
     print(f"Your worst day was on {worst_days.index[0].date()}, when you watched for: {worst_days.iloc[0]}.")
+
+    d_mean = df.duration.mean().total_seconds()
+    d_med = df.duration.median().total_seconds()
+    print(f"Your mean watch duration was {int(d_mean / 60)} minutes ({int(d_med / 60)} minutes median).")
 
     most_watched_channels = df.groupby(["channel", "channel_id"]).duration.sum().sort_values(ascending=False)
     print("Your most watched channels:")
@@ -311,7 +327,20 @@ def process(
     df.duration = df.duration.dt.total_seconds() / 3600
     fig = px.histogram(df, x="watched_on", y="duration")
     fig.update_traces(xbins_size="M1")
-    fig.update_layout(yaxis_title="hours watched")
+    fig.update_layout(yaxis_title="hours watched", title="Watch time by month")
+    fig.show()
+
+    fig = px.histogram(df, x="duration")
+    fig.update_layout(
+        xaxis_title="duration (hours)", yaxis_title="number of videos", title="Video duration distribution"
+    )
+    fig.show()
+
+    category_by_date = (
+        df.set_index("watched_on").groupby("category").resample("QE", label="left", closed="left").duration.sum()
+    )
+    fig = px.line(category_by_date.reset_index(), x="watched_on", color="category", y="duration")
+    fig.update_layout(yaxis_title="duration (hours)", title="Category distribution over time")
     fig.show()
 
 
