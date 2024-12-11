@@ -198,6 +198,7 @@ def process(
     import numpy as np
     import pandas as pd
     import plotly.express as px
+    import plotly.io as pio
     from rich import print
 
     if history_csv is None:
@@ -254,9 +255,17 @@ def process(
     tot_watch = df.duration.sum()
     percent_watch = tot_watch / (last_time - first_time)
     worst_weeks = (
-        df.resample("W-MON", label="left", closed="left", on="watched_on").duration.sum().sort_values(ascending=False)
+        df.set_index("watched_on")
+        .resample("W-MON", label="left", closed="left", origin="start_day")
+        .duration.sum()
+        .sort_values(ascending=False)
     )
-    worst_days = df.resample("D", on="watched_on").duration.sum().sort_values(ascending=False)
+    worst_days = (
+        df.set_index("watched_on")
+        .resample("D", label="left", closed="left", origin="start_day")
+        .duration.sum()
+        .sort_values(ascending=False)
+    )
 
     print(
         f"From {first_time.date()} to {last_time.date()} you watched {n_videos} youtube videos, "
@@ -324,9 +333,11 @@ def process(
         "were excluded because too long."
     )
 
+    pio.templates.default = "plotly_dark"
+
     df.duration = df.duration.dt.total_seconds() / 3600
-    fig = px.histogram(df, x="watched_on", y="duration")
-    fig.update_traces(xbins_size="M1")
+
+    fig = px.bar(df.set_index("watched_on").resample("ME").duration.sum())
     fig.update_layout(yaxis_title="hours watched", title="Watch time by month")
     fig.show()
 
@@ -337,7 +348,10 @@ def process(
     fig.show()
 
     category_by_date = (
-        df.set_index("watched_on").groupby("category").resample("QE", label="left", closed="left").duration.sum()
+        df.set_index("watched_on")
+        .groupby("category")
+        .resample("QE", label="left", closed="left", origin="start_day")
+        .duration.sum()
     )
     fig = px.line(category_by_date.reset_index(), x="watched_on", color="category", y="duration")
     fig.update_layout(yaxis_title="duration (hours)", title="Category distribution over time")
