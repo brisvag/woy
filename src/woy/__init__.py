@@ -1,4 +1,5 @@
-"""Wasted On Youtube"""
+"""Wasted On Youtube."""
+
 from importlib.metadata import PackageNotFoundError, version
 
 try:

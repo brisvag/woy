@@ -69,7 +69,7 @@ def chan_link(id, text):
     context_settings={"help_option_names": ["-h", "--help"], "show_default": True},
 )
 def woy():
-    """Wasted on youtube.
+    """Wasted on Youtube.
 
     First run fetch to download and prepare the data, then run process to summarize it.
     """
@@ -195,6 +195,8 @@ def process(
 
     HISTORY_CSV: path to the history csv generated with fetch. [default: ./youtube_watch_history.csv]
     """
+    from inspect import cleandoc
+
     import numpy as np
     import pandas as pd
     import plotly.express as px
@@ -237,17 +239,15 @@ def process(
         df = df[~df.channel.isin(exclude_channels.split(","))]
 
     raw_len = len(df)
-
-    longest = df[["id", "title", "channel", "channel_id", "duration"]].sort_values("duration", ascending=False)
-
+    df = df[df.title.notna()]
     valid_len = len(df)
     if max_length_hours:
         d, h = int(max_length_hours) // 24, int(max_length_hours) % 24
         df = df[df.duration <= pd.Timedelta(f"PT{d}D{h}H")]
     short_len = len(df)
-
     if not include_rewatch:
         df = df.drop_duplicates("id")
+    deduplicate_len = len(df)
 
     n_videos = len(df.id.unique())
     first_time = df.watched_on.min()
@@ -267,25 +267,20 @@ def process(
         .sort_values(ascending=False)
     )
 
-    print(
-        f"From {first_time.date()} to {last_time.date()} you watched {n_videos} youtube videos, "
-        f"for a total duration of: {df.duration.sum()}."
-    )
-
-    print(f"This amounts to {percent_watch*100:.2f}% of your time, or {percent_watch*150:.2f}% of your time awake.")
-
-    print(
-        f"Your worst week started on {worst_weeks.index[0].date()}, "
-        f"during which you watched for: {worst_weeks.iloc[0]}."
-    )
-
-    print(f"Your worst day was on {worst_days.index[0].date()}, when you watched for: {worst_days.iloc[0]}.")
-
     d_mean = df.duration.mean().total_seconds()
     d_med = df.duration.median().total_seconds()
-    print(f"Your mean watch duration was {int(d_mean / 60)} minutes ({int(d_med / 60)} minutes median).")
-
     most_watched_channels = df.groupby(["channel", "channel_id"]).duration.sum().sort_values(ascending=False)
+
+    summary = f"""
+        From {first_time.date()} to {last_time.date()} you watched {n_videos} youtube videos, for a total duration of {df.duration.sum()}.
+        This amounts to {percent_watch*100:.2f}% of your time, or {percent_watch*150:.2f}% of your time awake.
+        Your worst week started on {worst_weeks.index[0].date()}, during which you watched for {worst_weeks.iloc[0]}.
+        Your worst day was on {worst_days.index[0].date()}, when you watched for {worst_days.iloc[0]}.
+        Your mean watch duration was {int(d_mean / 60)} minutes ({int(d_med / 60)} minutes median).
+    """
+
+    print(cleandoc(summary))
+
     print("Your most watched channels:")
     for (ch, chid), time in most_watched_channels.iloc[:list_lengths].items():
         print(f"  - {time}: [blue]{chan_link(chid, ch)}[/blue]")
@@ -315,6 +310,7 @@ def process(
             f"by [blue]{chan_link(row.channel_id, row.channel)}[/blue]"
         )
 
+    longest = df[["id", "title", "channel", "channel_id", "duration"]].sort_values("duration", ascending=False)
     print(
         f"The longest videos you watched (excluded in other calculations if longer than {max_length_hours} hours) were:"
     )
@@ -324,15 +320,27 @@ def process(
             f"by [blue]{chan_link(row.channel_id, row.channel)}[/blue]"
         )
 
-    print(
-        f"{raw_len - valid_len} videos from your history ({100 * (raw_len - valid_len) / raw_len:.2f})% "
-        "could no longer be found."
-    )
-    print(
-        f"{valid_len - short_len} videos from your history ({100 * (valid_len - short_len) / valid_len:.2f})% "
-        "were excluded because too long."
-    )
+    excluded = ""
+    if raw_len - valid_len:
+        excluded += (
+            f"{raw_len - valid_len} videos from your history ({100 * (raw_len - valid_len) / raw_len:.2f})% "
+            "could no longer be found on youtube.\n"
+        )
+    if valid_len - short_len:
+        excluded += (
+            f"{valid_len - short_len} videos from your history ({100 * (valid_len - short_len) / valid_len:.2f})% "
+            f"were excluded because too long (longer than {max_length_hours} hours).\n"
+        )
+    if short_len - deduplicate_len:
+        excluded += (
+            f"{short_len - deduplicate_len} videos from your history ({100 * (valid_len - short_len) / valid_len:.2f})% "
+            "were excluded because they were rewatches (pass -r option to include them)."
+        )
 
+    print(f"[bright_black]{excluded}")
+
+    print("Plotting some stuff, check your browser!")
+    # plots
     pio.templates.default = "plotly_dark"
 
     df.duration = df.duration.dt.total_seconds() / 3600
