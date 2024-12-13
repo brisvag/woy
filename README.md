@@ -24,7 +24,7 @@ pip install woy
 
 ## Usage
 
-To scrape your history and download the additional info, run:
+To scrape your history and download the additional info, run (this is only needed once!):
 
 ```
 woy fetch <PATH_TO_TAKEOUT_HISTORY_JSON> <API_KEY>
@@ -43,7 +43,7 @@ woy process
 > [!TIP]
 > Video titles and channel names are clickable links!
 
-Run `woy process -h` to see all the available options to customize the summary.
+There are many options! Run `woy process -h` to see all the available options to customize the summary.
 
 For example, to include only the data starting from 2020, and exclude videos categorized as "Music", run:
 
@@ -54,3 +54,5 @@ woy process --exclude-categories "Music" -f 2020-01-01
 ## Caveats
 
 Youtube Takeout unfortunately does not include playback information, such as exact minutes watched and playback speed. This means that every time a video is watched "a bit", it's counted as a full watch. As a result, watch times are always overestimated, resulting for example in days where the watchtime is longer than 24h. As far as I know, there's no way around it.
+
+You can partly offset this by passing the `-a` (`--adjust-watch-time`) option, which will cut down the duration of a video if another video was started before it could have ended at a normal pace. So, if you started a 2 hour video at 12:00 and another one at 13:00, it will assume that only 1 hour was spent on the first video. Depending on your watching habits, this might cut down dramatically the watch time.

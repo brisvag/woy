@@ -149,7 +149,7 @@ def fetch(takeout, api_key, country_code):
     "-a",
     "--adjust-watch-time",
     is_flag=True,
-    help="Adjust watch time if the next video was watched before the end of the first.",
+    help="Adjust watch time of each video if the following video was started before the full duration of the previous video passed.",
 )
 @click.option("-f", "--from-date", help="Use data from this date, included (YYYY-MM-DD).")
 @click.option("-t", "--to-date", help="Use data up to this date, included (YYYY-MM-DD).")
@@ -213,7 +213,9 @@ def process(
 
     if adjust_watch_time:
         max_watchtime = df.watched_on[1:].to_numpy() - df.watched_on[:-1].to_numpy()
+        raw_duration = df.duration
         df.duration = np.minimum(df.duration[:-1], pd.to_timedelta(max_watchtime))
+        df["watch_ratio"] = df.duration / raw_duration
 
     if from_date is not None:
         from_date = pd.Timestamp(from_date).date()
@@ -301,6 +303,13 @@ def process(
         print("Your most rewatched videos:")
         for (vid, vid, chan, chid), times in most_rewatched.iloc[:list_lengths].items():
             print(f"  - {times} times: [purple]{yt_link(vid, vid)}[/purple] by [blue]{chan_link(chid, chan)}[/blue]")
+
+    if adjust_watch_time:
+        lowest_watch_ratio = df.groupby(["channel", "channel_id"]).agg({"watch_ratio": "mean", "channel": "count"})
+        lowest_watch_ratio = lowest_watch_ratio[lowest_watch_ratio.channel > 10].watch_ratio.sort_values(ascending=True)
+        print("The channels whose videos you watch most efficiently (skipping channels with <10 views):")
+        for (ch, chid), ratio in lowest_watch_ratio.iloc[:list_lengths].items():
+            print(f"  - {ratio*100:.2f}% of video duration: [blue]{chan_link(chid, ch)}[/blue]")
 
     most_obscure = df[["id", "title", "channel", "channel_id", "views"]].sort_values("views", ascending=True)
     print("The most obscure videos you watched were:")
